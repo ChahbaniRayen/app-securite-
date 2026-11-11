@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # =============================================================
-# DAST : OWASP ZAP (Docker)
-#   Mode "baseline" : scan passif rapide (en-tetes, cookies, URLs)
-#   Mode "full"     : spider + active scan (injections, XSS, ...)
+# DAST : OWASP ZAP - Automation Framework (-autorun)
+#   baseline : spider uniquement (passif)
+#   full     : spider + activeScan (injections, XSS, CSRF, ...)
 # Usage : ./orchestrator/run_dast.sh [baseline|full] [cible...]
 # Sortie : results/<date>/dast/zap-<mode>-<cible>.{html,json}
 # =============================================================
@@ -25,32 +25,72 @@ url_of() {
   esac
 }
 
+gen_yaml() {  # $1=cible $2=url $3=mode
+  local t="$1" url="$2" m="$3"
+  local ascan=""
+  if [ "$m" = "full" ]; then
+    ascan="
+  - type: activeScan
+    name: activeScan
+    parameters:
+      context: secscan
+      url: $url
+      maxRuleDurationInMins: 5
+      maxScanDurationInMins: 25
+      maxThreads: 2"
+  fi
+  cat > "$OUT/zap-$m-$t.yaml" <<YAMLEOF
+---
+env:
+  contexts:
+    - name: secscan
+      urls:
+        - $url
+      includePaths:
+        - $url.*
+  parameters:
+    failOnError: false
+    failOnWarning: false
+jobs:
+  - type: spider
+    name: spider
+    parameters:
+      context: secscan
+      url: $url
+      maxDuration: 8
+$ascan
+  - type: report
+    name: report-html
+    parameters:
+      template: risk-confidence-html
+      reportDir: /out
+      reportFile: zap-$m-$t
+      reportTitle: "ZAP $m scan - $t"
+      displayReport: false
+  - type: report
+    name: report-json
+    parameters:
+      template: traditional-json
+      reportDir: /out
+      reportFile: zap-$m-$t
+      reportTitle: "ZAP $m scan - $t"
+      displayReport: false
+YAMLEOF
+}
+
 echo "### [DAST:$MODE] sortie : $OUT"
 for t in "${TARGETS[@]}"; do
   URL="$(url_of "$t")"
   [ -z "$URL" ] && { echo "[SKIP] $t"; continue; }
   echo "### [DAST:$MODE] $t -> $URL"
-  if [ "$MODE" = "baseline" ]; then
-    docker run --rm --network host -v "$OUT":/out -v "$ROOT/scanners/zap":/zapcfg:ro \
-      -e ZAP_PORT=8090 \
-      "$IMAGE" zap.sh -cmd -silent \
-        -quickurl "$URL" \
-        -quickout "/out/zap-baseline-$t.html" \
-        -quickjson "/out/zap-baseline-$t.json" \
-        -quickprogress "/out/zap-baseline-$t.progress" \
-      > "$OUT/zap-baseline-$t.log" 2>&1
-  else
-    docker run --rm --network host -v "$OUT":/out -v "$ROOT/scanners/zap":/zapcfg:ro \
-      --memory=3g \
-      "$IMAGE" zap.sh -cmd \
-        -fullurl "$URL" \
-        -fullout "/out/zap-full-$t.html" \
-        -fulljson "/out/zap-full-$t.json" \
-        -fullprogress "/out/zap-full-$t.progress" \
-      > "$OUT/zap-full-$t.log" 2>&1
-  fi
-  RC=$?
-  if [ $RC -eq 0 ] && [ -f "$OUT/zap-$MODE-$t.json" ]; then
+  gen_yaml "$t" "$URL" "$MODE"
+  docker run --rm --network host \
+    -v "$OUT":/out \
+    --memory=3g \
+    "$IMAGE" zap.sh -cmd -port 8090 -notel -autorun "/out/zap-$MODE-$t.yaml" \
+    > "$OUT/zap-$MODE-$t.log" 2>&1
+  RC=$?   # 0=ok, 2=warnings (non fatal, cf doc ZAP)
+  if [ -f "$OUT/zap-$MODE-$t.json" ]; then
     python3 -c "
 import json
 d = json.load(open('$OUT/zap-$MODE-$t.json'))
@@ -58,7 +98,8 @@ sites = d.get('site', [])
 alerts = sum(len(s.get('alerts', [])) for s in sites)
 print('    -> zap-$MODE-$t.json :', alerts, 'alertes')"
   else
-    echo "    [ECHEC rc=$RC] voir zap-$MODE-$t.log"; tail -3 "$OUT/zap-$MODE-$t.log" 2>/dev/null
+    echo "    [ECHEC rc=$RC] dernières lignes du log :"
+    grep -iE "error|exception|failed|invalid" "$OUT/zap-$MODE-$t.log" | tail -4
   fi
 done
 echo "### [DAST:$MODE] TERMINE"
