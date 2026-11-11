@@ -222,7 +222,7 @@ def main():
     ], size=14, gap=11)
 
     d.output(out)
-    print(f"Presentation generee : {out} ({os.path.getsize(out)} octets, {len(d.pages())} slides)")
+    print(f"Presentation generee : {out} ({os.path.getsize(out)} octets, {len(d.pages)} slides)")
 
 if __name__ == "__main__":
     main()
