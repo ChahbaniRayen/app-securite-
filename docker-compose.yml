@@ -1,0 +1,45 @@
+# =============================================================
+# Plateforme de detection de vulnerabilites - Cibles
+# Juice Shop (TP1-3) + Roundcube (module Email)
+# crAPI est deploie via son compose officiel (third_party/crAPI)
+# =============================================================
+name: secscan
+
+networks:
+  secscan-net:
+    driver: bridge
+
+services:
+  juice-shop:
+    image: bkimminich/juice-shop:v20.2.0
+    container_name: juice-shop
+    ports:
+      - "3000:3000"
+    networks:
+      - secscan-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/',r=>process.exit(r.statusCode?0:1)).on('error',()=>process.exit(1))"]
+      interval: 15s
+      timeout: 8s
+      retries: 12
+      start_period: 60s
+
+  roundcube:
+    image: roundcube/roundcubemail:1.6.21-apache
+    container_name: roundcube
+    ports:
+      - "8080:80"
+    environment:
+      ROUNDCUBEMAIL_DB_TYPE: sqlite
+      ROUNDCUBEMAIL_DEFAULT_HOST: ""
+      ROUNDCUBEMAIL_SKIN: elastic
+    networks:
+      - secscan-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "timeout 3 bash -c ': < /dev/tcp/127.0.0.1/80' || exit 1"]
+      interval: 15s
+      timeout: 8s
+      retries: 12
+      start_period: 30s
