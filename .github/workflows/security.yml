@@ -102,7 +102,7 @@ jobs:
           severity: HIGH,CRITICAL
           format: json
           output: results-sca-trivy.json
-          trivyignores: .trivyignore
+          exit-code: "0"
 
       - name: npm audit (Juice Shop)
         run: |
