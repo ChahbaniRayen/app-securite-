@@ -15,7 +15,7 @@ done
 
 echo "########## SCAN_DATE=$SCAN_DATE ##########"
 echo "[1/6] SAST (Semgrep + SonarQube)"
-[ "$SKIP_SONAR" = "1" ] && SKIP_SONAR=1 ./orchestrator/run_sast.sh || ./orchestrator/run_sast.sh
+if [ "$SKIP_SONAR" = "1" ]; then SKIP_SONAR=1 ./orchestrator/run_sast.sh; else ./orchestrator/run_sast.sh; fi
 
 echo "[2/6] DAST (ZAP baseline + full)"
 if [ "$SKIP_DAST" = "1" ]; then echo "  (skip)"; else ./orchestrator/run_dast.sh baseline && ./orchestrator/run_dast.sh full; fi

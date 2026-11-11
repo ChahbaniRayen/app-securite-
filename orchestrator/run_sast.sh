@@ -35,14 +35,14 @@ if [ "$SKIP_SEMGREP" != "1" ]; then
 # SURCHARGE : SEMGREP_CONFIGS="--config ... --config ..." (separateur espace)
 read -ra SEMGREP_CONFIGS <<< "${SEMGREP_CONFIGS:---config p/owasp-top-ten}"; 
 if [ -d "$ROOT/scanners/semgrep/rules" ] && [ -n "$(ls -A "$ROOT/scanners/semgrep/rules" 2>/dev/null)" ]; then
-  SEMGREP_CONFIGS+=("--config" "$ROOT/scanners/semgrep/rules")
+  SEMGREP_CONFIGS+=("--config" "/rules")   # chemin DANS le conteneur (monte ci-dessous)
 fi
 
 for t in "${TARGETS[@]}"; do
   SRC="$(src_of "$t")"
   [ -z "$SRC" ] || [ ! -d "$SRC" ] && { echo "[SKIP] $t : source introuvable ($SRC)"; continue; }
   echo "### [semgrep] $t ..."
-  docker run --rm -v "$SRC":/src:ro -v "$OUT":/out \
+  docker run --rm -v "$SRC":/src:ro -v "$OUT":/out -v "$ROOT/scanners/semgrep/rules":/rules:ro \
     semgrep/semgrep:latest semgrep scan --json --timeout 120 \
     "${SEMGREP_CONFIGS[@]}" --metrics=off --quiet -o "/out/semgrep-$t.json" /src \
     && echo "    -> semgrep-$t.json ($(python3 -c "import json;d=json.load(open('$OUT/semgrep-$t.json'));print(len(d.get('results',[])),'alertes')" 2>/dev/null || echo '?'))" \
