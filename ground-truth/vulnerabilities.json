@@ -59,7 +59,7 @@
       },
       "matchers": {
         "semgrep": "sequelize|sql-injection|raw-query",
-        "sonarqube": "(?i)sql",
+        "sonarqube": "(?i)(?=.*sql)(?=.*login\\.ts)",
         "zap": "(?i)sql.?inject",
         "custom": "raw-query",
         "trivy": null,
@@ -196,12 +196,13 @@
         "custom": true
       },
       "matchers": {
-        "custom": "(?i)bola|idor|authorization",
         "zap": null,
         "semgrep": null,
         "sonarqube": null,
         "trivy": null,
-        "npm_audit": null
+        "npm_audit": null,
+        "authz_checker": "(?i)bola|idor|authorization",
+        "custom": null
       }
     },
     {
@@ -231,12 +232,13 @@
         "custom": true
       },
       "matchers": {
-        "custom": "(?i)bfla|privilege|authorization",
         "zap": null,
         "semgrep": null,
         "sonarqube": null,
         "trivy": null,
-        "npm_audit": null
+        "npm_audit": null,
+        "authz_checker": "(?i)bfla|privilege|authorization",
+        "custom": null
       }
     },
     {
@@ -266,12 +268,13 @@
         "custom": "possible"
       },
       "matchers": {
-        "custom": "(?i)order|refund|mass.?assign",
         "zap": null,
         "semgrep": null,
         "sonarqube": null,
         "trivy": null,
-        "npm_audit": null
+        "npm_audit": null,
+        "authz_checker": "(?i)order|refund|mass.?assign",
+        "custom": null
       }
     },
     {

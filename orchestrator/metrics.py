@@ -14,7 +14,7 @@ Usage : ./orchestrator/metrics.py <results-dir>
 import json, sys, os, re, glob
 from collections import defaultdict
 
-TOOLS = ["semgrep", "custom", "sonarqube", "zap", "trivy", "npm_audit"]
+TOOLS = ["semgrep", "custom", "authz_checker", "sonarqube", "zap", "trivy", "npm_audit"]
 
 def norm_tool(t):
     return "custom" if t == "semgrep_custom" else t
