@@ -59,7 +59,7 @@
       },
       "matchers": {
         "semgrep": "sequelize|sql-injection|raw-query",
-        "sonarqube": ".*",
+        "sonarqube": "(?i)sql",
         "zap": "(?i)sql.?inject",
         "custom": "raw-query",
         "trivy": null,
@@ -306,7 +306,7 @@
         "trivy": "(?i)secret|hardcod|credential",
         "custom": "(?i)hardcoded-secret",
         "semgrep": "(?i)hardcod|generic.secrets",
-        "sonarqube": "(?i)hard.?cod|password",
+        "sonarqube": "(?i)hard.?cod|secret|credential",
         "zap": null,
         "npm_audit": null
       }
@@ -378,6 +378,42 @@
         "zap": null,
         "semgrep": null,
         "sonarqube": null,
+        "custom": null
+      }
+    },
+    {
+      "id": "JS-005",
+      "target": "juice-shop",
+      "title": "Dependances npm vulnerables (package-lock / advisory DB)",
+      "cwe": "CWE-1104",
+      "owasp": "A06:2025",
+      "type": [
+        "SCA"
+      ],
+      "severity": "high",
+      "location": {
+        "endpoint": null,
+        "file": "package.json / package-lock.json",
+        "line": null,
+        "param": null
+      },
+      "status": "pending",
+      "verification": "2026-11-11 : npm audit -> 55 paquets vulnerables (7 critical, 22 high) ; a confronter aux advisories",
+      "source": "SCA Phase 5",
+      "detection_expected": {
+        "semgrep": false,
+        "sonarqube": false,
+        "zap": false,
+        "trivy": "possible",
+        "npm_audit": true,
+        "custom": false
+      },
+      "matchers": {
+        "npm_audit": ".",
+        "trivy": "(?i)npm|node|package",
+        "semgrep": null,
+        "sonarqube": null,
+        "zap": null,
         "custom": null
       }
     }

@@ -179,7 +179,7 @@ def main(root):
     os.makedirs(out_dir, exist_ok=True)
     findings = []
     files = []
-    for pat in ("sast/*.json", "sast-custom/*.json", "dast/*.json", "sca/*.json"):
+    for pat in ("sast/*.json", "sast-custom/*.json", "dast/*.json", "sca/*.json", "custom/*.json"):
         files += glob.glob(os.path.join(root, pat))
     print(f"[normalize] {len(files)} fichiers bruts dans {root}")
     for fp in sorted(files):
