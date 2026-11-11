@@ -50,10 +50,11 @@ def load(fp):
 
 # ---------- convertisseurs ----------
 def conv_semgrep(d, fp, out, target_hint=None):
+    tool = "custom" if "custom" in os.path.basename(fp) else "semgrep"
     for r in d.get("results", []):
         md = r.get("extra", {}).get("metadata", {})
         out.append({
-            "tool": "semgrep", "type": "SAST",
+            "tool": tool, "type": "SAST",
             "target": target_hint or target_of(r.get("path", "")) or target_of(fp),
             "title": (r.get("extra", {}).get("message", "") or r.get("check_id", "")).strip().split("\n")[0][:200],
             "severity": SEMGREP_SEV.get(r.get("extra", {}).get("severity", "INFO"), "info"),
@@ -152,12 +153,19 @@ def conv_npm(d, fp, out, target_hint=None):
             "source_file": os.path.basename(fp),
         })
 
+def conv_authz(d, fp, out, target_hint=None):
+    """authz-findings.json est deja au schema normalise."""
+    for f in d.get("findings", []):
+        f.setdefault("source_file", os.path.basename(fp))
+        out.append(f)
+
 CONV = [
     ("semgrep-custom-", conv_semgrep), ("semgrep-", conv_semgrep),
     ("sonar-", conv_sonar),
     ("zap-baseline-", conv_zap), ("zap-full-", conv_zap),
     ("trivy-fs-", conv_trivy), ("trivy-image-", conv_trivy),
     ("npm-audit-", conv_npm),
+    ("authz-", conv_authz),
 ]
 
 def guess_target(fp):
