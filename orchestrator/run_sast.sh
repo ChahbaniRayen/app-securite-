@@ -6,6 +6,8 @@
 # =============================================================
 set -uo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+# Secrets locaux (.env : SONAR_TOKEN)
+if [ -f "$ROOT/.env" ]; then set -a; . "$ROOT/.env"; set +a; fi
 DATE="${SCAN_DATE:-$(date +%Y%m%d-%H%M%S)}"
 OUT="$ROOT/results/$DATE/sast"
 SONAR_HOST="${SONAR_HOST_URL:-http://127.0.0.1:9000}"

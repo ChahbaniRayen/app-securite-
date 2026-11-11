@@ -60,9 +60,17 @@ SCAN_DIR=$(ls -td results/2* | head -1)
 echo "Resultats : $SCAN_DIR"
 
 # [8] Livrables
-echo; echo "===== [8/8] RAPPORTS ====="
-python3 orchestrator/report_pdf.py "$SCAN_DIR" && echo "  -> $SCAN_DIR/report.pdf"
-python3 orchestrator/slides_pptx.py "$SCAN_DIR/presentation.pptx" "$SCAN_DIR" && echo "  -> $SCAN_DIR/presentation.pptx"
+echo; echo "===== [8/8] RAPPORTS (verification — deja generes en fin de pipeline) ====="
+if [ -f "$SCAN_DIR/report.pdf" ]; then
+  echo "  present : $SCAN_DIR/report.pdf"
+else
+  python3 orchestrator/report_pdf.py "$SCAN_DIR" && echo "  -> $SCAN_DIR/report.pdf"
+fi
+if [ -f "$SCAN_DIR/presentation.pptx" ]; then
+  echo "  present : $SCAN_DIR/presentation.pptx"
+else
+  python3 orchestrator/slides_pptx.py "$SCAN_DIR/presentation.pptx" "$SCAN_DIR" && echo "  -> $SCAN_DIR/presentation.pptx"
+fi
 
 # Resume
 T1=$(date +%s)

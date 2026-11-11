@@ -20,16 +20,16 @@ for a in "$@"; do
 done
 
 echo "########## SCAN_DATE=$SCAN_DATE ##########"
-echo "[1/6] SAST (Semgrep + SonarQube)"
+echo "[1/7] SAST (Semgrep + SonarQube)"
 if [ "$SKIP_SONAR" = "1" ]; then SKIP_SONAR=1 ./orchestrator/run_sast.sh; else ./orchestrator/run_sast.sh; fi
 
-echo "[2/6] DAST (ZAP : $DAST_MODE)"
+echo "[2/7] DAST (ZAP : $DAST_MODE)"
 if [ "$SKIP_DAST" = "1" ]; then echo "  (skip)"; else ./orchestrator/run_dast.sh "$DAST_MODE"; fi
 
-echo "[3/6] SCA (Trivy + npm audit)"
+echo "[3/7] SCA (Trivy + npm audit)"
 ./orchestrator/run_sca.sh
 
-echo "[4/6] Detection custom (regles Semgrep maison)"
+echo "[4/7] Detection custom (regles Semgrep maison)"
 for pair in "juice-shop:third_party/juice-shop" "crapI:third_party/crAPI" "roundcube:third_party/roundcubemail"; do
   t="${pair%%:*}"; src="${pair##*:}"
   [ -d "$src" ] || continue
@@ -39,12 +39,22 @@ for pair in "juice-shop:third_party/juice-shop" "crapI:third_party/crAPI" "round
     -o "/out/semgrep-custom-$t.json" /src >/dev/null 2>&1
 done
 
-echo "[5/6] Detection custom (authz_checker BOLA/BFLA sur crAPI)"
+echo "[5/7] Detection custom (authz_checker BOLA/BFLA sur crAPI)"
 python3 custom/authz/authz_checker.py --out "results/$SCAN_DATE/custom" || echo "  (authz_checker: avertissement)"
 
-echo "[6/6] Normalisation + Metriques"
+echo "[6/7] Normalisation + Metriques"
 AGG="results/$SCAN_DATE"
 python3 orchestrator/normalize.py "$AGG"
 python3 orchestrator/metrics.py "$AGG"
 
+echo "[7/7] Generation des rapports (PDF + PPTX)"
+python3 orchestrator/report_pdf.py "$AGG" \
+  && echo "  -> $AGG/report.pdf" \
+  || echo "  [ECHEC] report_pdf.py"
+python3 orchestrator/slides_pptx.py "$AGG/presentation.pptx" "$AGG" \
+  && echo "  -> $AGG/presentation.pptx" \
+  || echo "  [ECHEC] slides_pptx.py"
+
 echo "########## TERMINE : results/$SCAN_DATE ##########"
+echo "  Rapport PDF       : $AGG/report.pdf"
+echo "  Presentation PPTX : $AGG/presentation.pptx"
