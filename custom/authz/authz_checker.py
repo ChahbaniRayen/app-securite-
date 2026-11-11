@@ -180,7 +180,7 @@ def main():
         st, res = http("GET", f"{base}/identity/api/v2/vehicle/vehicles", token=token)
         ids = find_ids(res, "vehicle_id") or find_ids(res, "vehicleId") or find_ids(res, "uuid")
         if not ids and vin_pin:
-            vin, pin = vin_pin.split(":", 1)
+            vin, pin = vin_pin.split("|", 1)
             st, res = http("POST", f"{base}/identity/api/v2/vehicle/add_vehicle",
                            {"vin": vin, "pincode": pin}, token=token)
             print(f"    add_vehicle {vin} -> HTTP {st}: {str(res)[:110]}")

@@ -184,8 +184,8 @@
         "endpoint": "GET /identity/api/v2/vehicle/vehicles/{vehicleId}",
         "param": "vehicleId"
       },
-      "status": "pending",
-      "verification": "À vérifier en Phase 6 avec authz_checker.py (comptes foulen/foulana)",
+      "status": "confirmed",
+      "verification": "2026-11-11 : authz_checker.py - token foulen -> GET /identity/api/v2/vehicle/<uuid foulana>/location = HTTP 200 + donnees du vehicule victime (BOLA Challenge 1 TP4)",
       "source": "TP4 Lab A",
       "detection_expected": {
         "semgrep": false,
@@ -219,8 +219,8 @@
         "endpoint": "admin/community endpoints (cf. challenges.md)",
         "param": "Authorization Bearer"
       },
-      "status": "pending",
-      "verification": "À vérifier en Phase 6 avec authz_checker.py",
+      "status": "confirmed",
+      "verification": "2026-11-11 : authz_checker.py - token USER -> GET /workshop/api/management/users/all = HTTP 200 ; DELETE /admin/videos/{id} sans 401/403 (BFLA Challenge 7 TP4)",
       "source": "TP4 Lab B",
       "detection_expected": {
         "semgrep": false,
