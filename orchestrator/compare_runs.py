@@ -26,7 +26,7 @@ def load_findings(scan_dir):
 
 def fingerprint(f):
     loc = f.get("file") or f.get("endpoint") or ""
-    return (f.get("tool"), f.get("rule_id"), f.get("target"), loc)
+    return (f.get("tool"), f.get("rule_id"), f.get("target"), loc, f.get("line"))
 
 def main():
     if len(sys.argv) < 3:
