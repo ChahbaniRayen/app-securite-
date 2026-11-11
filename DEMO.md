@@ -20,12 +20,16 @@ python3 -m json.tool ground-truth/vulnerabilities.json | head -40
 ```
 **À dire** : 11 vulnérabilités référencées, issues des TP1-TP4, **6 confirmées par nos propres tests** (ex. SQLi → JWT admin obtenu avec `' OR 1=1--`).
 
-## Étape 3 — Exécution automatisée des scans (5 min)
+## Étape 3 — Exécution automatisée : TOUT EN UNE COMMANDE (5-10 min)
 
 ```bash
-# Pipeline complet en une commande (SAST -> DAST -> SCA -> custom -> metrics)
-./orchestrator/run_all.sh --skip-dast     # (~3 min ; sans DAST pour la démo)
-# ou individuellement :
+./launch.sh              # deploiement -> sante -> SAST -> DAST baseline
+                         # -> SCA -> custom -> metriques -> PDF + PPTX
+# variantes :
+./launch.sh --quick      # sans DAST (~5 min)   --full : + scan actif (~1h)
+# ou pipeline seul :
+./orchestrator/run_all.sh --skip-dast
+# ou un outil seul :
 ./orchestrator/run_sast.sh                # Semgrep + SonarQube
 ./orchestrator/run_dast.sh full           # ZAP spider + active scan
 ./orchestrator/run_sca.sh                 # Trivy + npm audit
