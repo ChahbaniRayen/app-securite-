@@ -95,7 +95,7 @@ jobs:
           [ -d third_party/crAPI ] || git clone -q --depth 1 https://github.com/OWASP/crAPI.git third_party/crAPI
 
       - name: Trivy (sources + secrets + misconfigs)
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: fs
           scan-ref: .
