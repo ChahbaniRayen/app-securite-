@@ -26,9 +26,14 @@ src_of() {
 key_of() { case "$1" in juice-shop) echo juice-shop;; crapI) echo crapi;; roundcube) echo roundcube;; esac; }
 
 echo "### [SAST] Sortie : $OUT"
+SKIP_SEMGREP="${SKIP_SEMGREP:-0}"
+SKIP_SONAR="${SKIP_SONAR:-0}"
 
 # ---------- 1. SEMGREP ----------
-SEMGREP_CONFIGS=("${SEMGREP_CONFIGS:---config p/owasp-top-ten}")
+if [ "$SKIP_SEMGREP" != "1" ]; then
+# configs semgrep : par defaut p/owasp-top-ten (+ regles locales si presentes)
+# SURCHARGE : SEMGREP_CONFIGS="--config ... --config ..." (separateur espace)
+read -ra SEMGREP_CONFIGS <<< "${SEMGREP_CONFIGS:---config p/owasp-top-ten}"; 
 if [ -d "$ROOT/scanners/semgrep/rules" ] && [ -n "$(ls -A "$ROOT/scanners/semgrep/rules" 2>/dev/null)" ]; then
   SEMGREP_CONFIGS+=("--config" "$ROOT/scanners/semgrep/rules")
 fi
@@ -44,7 +49,10 @@ for t in "${TARGETS[@]}"; do
     || echo "    [ECHEC] semgrep $t"
 done
 
+fi
+
 # ---------- 2. SONARQUBE ----------
+if [ "$SKIP_SONAR" != "1" ]; then
 if [ -n "$SONAR_TOKEN" ]; then
   for t in "${TARGETS[@]}"; do
     SRC="$(src_of "$t")"; KEY="$(key_of "$t")"
@@ -57,12 +65,12 @@ if [ -n "$SONAR_TOKEN" ]; then
       -e SONAR_TOKEN="$SONAR_TOKEN" \
       -e SONAR_USER_HOME=/out/.sonar \
       sonarsource/sonar-scanner-cli:latest \
-      -DprojectKey="$KEY" -DprojectName="$KEY" -DprojectVersion=1.0 \
+      -Dsonar.projectKey="$KEY" -Dsonar.projectName="$KEY" -Dsonar.projectVersion=1.0 \
       -Dsonar.sources=. -Dsonar.exclusions=**/node_modules/**,**/vendor/**,**/*.min.js,**/test/**,**/tests/** \
       -Dsonar.working.directory="/out/.sonar-$KEY" \
       > "$OUT/sonar-$t.log" 2>&1
     if grep -q "EXECUTION SUCCESS" "$OUT/sonar-$t.log"; then
-      curl -s -u ":$SONAR_TOKEN" "$SONAR_HOST/api/issues/search?componentKeys=$KEY&ps=1000" > "$OUT/sonar-$t.json"
+      curl -s -H "Authorization: Bearer $SONAR_TOKEN" "$SONAR_HOST/api/issues/search?componentKeys=$KEY&ps=1000" > "$OUT/sonar-$t.json"
       echo "    -> sonar-$t.json ($(python3 -c "import json;d=json.load(open('$OUT/sonar-$t.json'));print(d.get('total','?'),'issues')" 2>/dev/null || echo '?'))"
     else
       echo "    [ECHEC] voir $OUT/sonar-$t.log"; tail -3 "$OUT/sonar-$t.log"
@@ -70,6 +78,8 @@ if [ -n "$SONAR_TOKEN" ]; then
   done
 else
   echo "### [sonarqube] SONAR_TOKEN absent -> analyse SonarQube ignorée (configurer .env)"
+fi
+
 fi
 
 echo "### [SAST] TERMINE"
