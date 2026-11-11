@@ -16,19 +16,22 @@ cd "$(dirname "$0")"
 
 ARGS=""
 DO_DEPLOY=1
+DAST_MODE="baseline"          # par defaut : baseline (rapide)
 for a in "$@"; do
   case "$a" in
-    --full)        ARGS="$ARGS" ;;                     # DAST full = défaut de run_all
-    --quick)       ARGS="$ARGS --skip-dast" ;;
-    --skip-deploy) DO_DEPLOY=0 ;;
-    --skip-sonar)  ARGS="$ARGS --skip-sonar" ;;
-    --dast-baseline) ARGS="$ARGS --dast-baseline" ;;
-    *) echo "Option inconnue: $a (aide: voir en-tete du script)"; exit 1;;
+    --full)          DAST_MODE="full" ;;      # scan actif complet
+    --quick)         DAST_MODE="none" ;;
+    --dast-baseline) DAST_MODE="baseline" ;;
+    --skip-deploy)   DO_DEPLOY=0 ;;
+    --skip-sonar)    ARGS="$ARGS --skip-sonar" ;;
+    *) echo "Option inconnue: $a (options: --full --quick --skip-deploy --skip-sonar --dast-baseline)"; exit 1;;
   esac
 done
-# Par defaut : DAST baseline (rapide). --full => scan actif complet.
-echo "$ARGS" | grep -q "skip-dast" || ARGS="$ARGS --dast-baseline"
-[ "$1" = "--full" ] 2>/dev/null && ARGS=$(echo "$ARGS" | sed "s/ --dast-baseline//")
+case "$DAST_MODE" in
+  none)     ARGS="$ARGS --skip-dast" ;;
+  baseline) ARGS="$ARGS --dast-baseline" ;;
+  full)     ARGS="$ARGS" ;;   # run_all fait baseline + full
+esac
 
 T0=$(date +%s)
 echo "############################################################"
