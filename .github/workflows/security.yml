@@ -1,0 +1,218 @@
+# =============================================================
+# CI/CD : analyse de securite automatique a chaque modification
+#   - SAST  : Semgrep (+ SonarQube si secrets configures)
+#   - SCA   : Trivy (fs) + npm audit
+#   - DAST  : OWASP ZAP (baseline) — declenchement manuel/planifie
+#   - Archivage : artifacts GitHub + branche results/
+# =============================================================
+name: Security Scan
+
+on:
+  push:
+    branches: [master, main]
+    paths:
+      - "third_party/**"
+      - "scanners/**"
+      - "custom/**"
+      - "orchestrator/**"
+      - "ground-truth/**"
+      - ".github/workflows/security.yml"
+  pull_request:
+    branches: [master, main]
+  workflow_dispatch:
+    inputs:
+      run_dast:
+        description: "Executer aussi le scan DAST (ZAP)"
+        type: boolean
+        default: false
+  schedule:
+    - cron: "0 3 * * 1"   # hebdomadaire, lundi 03h00 UTC
+
+env:
+  SCAN_DATE: ${{ github.run_number }}-${{ github.run_attempt }}
+
+jobs:
+  # ---------------- SAST ----------------
+  sast:
+    name: SAST (Semgrep)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Recuperer les sources des cibles
+        run: |
+          mkdir -p third_party
+          [ -d third_party/juice-shop ] || git clone -q --depth 1 --branch v20.2.0 https://github.com/juice-shop/juice-shop.git third_party/juice-shop
+          [ -d third_party/crAPI ] || git clone -q --depth 1 https://github.com/OWASP/crAPI.git third_party/crAPI
+          [ -d third_party/roundcubemail ] || git clone -q --depth 1 --branch 1.6.21 https://github.com/roundcube/roundcubemail.git third_party/roundcubemail || git clone -q --depth 1 https://github.com/roundcube/roundcubemail.git third_party/roundcubemail
+
+      - name: Semgrep (regles OWASP + regles custom)
+        run: |
+          mkdir -p "results/${SCAN_DATE}/sast" "results/${SCAN_DATE}/sast-custom"
+          docker run --rm -v "$PWD/third_party/juice-shop":/src:ro -v "$PWD/results/${SCAN_DATE}/sast":/out \
+            semgrep/semgrep:latest semgrep scan --json --config p/owasp-top-ten --metrics=off --quiet \
+            -o /out/semgrep-juice-shop.json /src
+          docker run --rm -v "$PWD/third_party/crAPI":/src:ro -v "$PWD/results/${SCAN_DATE}/sast":/out \
+            semgrep/semgrep:latest semgrep scan --json --config p/owasp-top-ten --metrics=off --quiet \
+            -o /out/semgrep-crapI.json /src
+          docker run --rm -v "$PWD/third_party/roundcubemail":/src:ro -v "$PWD/results/${SCAN_DATE}/sast":/out \
+            semgrep/semgrep:latest semgrep scan --json --config p/owasp-top-ten --metrics=off --quiet \
+            -o /out/semgrep-roundcube.json /src
+          docker run --rm -v "$PWD/third_party/juice-shop":/src:ro -v "$PWD/scanners/semgrep/rules":/rules:ro \
+            -v "$PWD/results/${SCAN_DATE}/sast-custom":/out \
+            semgrep/semgrep:latest semgrep scan --json --config /rules --metrics=off --quiet \
+            -o /out/semgrep-custom-juice-shop.json /src
+
+      - name: SonarQube (optionnel — requiert les secrets SONAR_HOST_URL / SONAR_TOKEN)
+        if: ${{ vars.SONAR_HOST_URL != '' }}
+        continue-on-error: true
+        run: |
+          docker run --rm --network host -v "$PWD/third_party/juice-shop":/usr/src \
+            -e SONAR_HOST_URL="${{ vars.SONAR_HOST_URL }}" \
+            -e SONAR_TOKEN="${{ secrets.SONAR_TOKEN }}" \
+            sonarsource/sonar-scanner-cli:latest \
+            -Dsonar.projectKey=juice-shop-ci -Dsonar.sources=. \
+            -Dsonar.exclusions="**/node_modules/**,**/test/**" || true
+
+      - name: Archiver les resultats SAST
+        uses: actions/upload-artifact@v4
+        with:
+          name: sast-${{ env.SCAN_DATE }}
+          path: results/${{ env.SCAN_DATE }}/sast*
+          retention-days: 90
+
+  # ---------------- SCA ----------------
+  sca:
+    name: SCA (Trivy + npm audit)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Recuperer les sources
+        run: |
+          mkdir -p third_party
+          [ -d third_party/juice-shop ] || git clone -q --depth 1 --branch v20.2.0 https://github.com/juice-shop/juice-shop.git third_party/juice-shop
+          [ -d third_party/crAPI ] || git clone -q --depth 1 https://github.com/OWASP/crAPI.git third_party/crAPI
+
+      - name: Trivy (sources + secrets + misconfigs)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          severity: HIGH,CRITICAL
+          format: json
+          output: results-sca-trivy.json
+          trivyignores: .trivyignore
+
+      - name: npm audit (Juice Shop)
+        run: |
+          mkdir -p "results/${SCAN_DATE}/sca"
+          cp results-sca-trivy.json "results/${SCAN_DATE}/sca/trivy-fs-ci.json" || true
+          cd third_party/juice-shop
+          npm i --package-lock-only --ignore-scripts >/dev/null 2>&1 || true
+          npm audit --json > "../../results/${SCAN_DATE}/sca/npm-audit-juice-shop.json" || true
+
+      - name: Archiver les resultats SCA
+        uses: actions/upload-artifact@v4
+        with:
+          name: sca-${{ env.SCAN_DATE }}
+          path: results/${{ env.SCAN_DATE }}/sca/
+          retention-days: 90
+
+  # ---------------- DAST (manuel / planifie) ----------------
+  dast:
+    name: DAST (OWASP ZAP baseline)
+    if: github.event_name == 'workflow_dispatch' && inputs.run_dast
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: ZAP baseline sur les cibles (URLs publiques EC2)
+        run: |
+          mkdir -p "results/${SCAN_DATE}/dast"
+          for t in "juice-shop:${{ vars.URL_JUICE }}" "crapI:${{ vars.URL_CRAPI }}" "roundcube:${{ vars.URL_ROUNDCUBE }}"; do
+            name="${t%%:*}"; url="${t##*:}"
+            [ -z "$url" ] && continue
+            cat > /tmp/zap.yaml <<YAML
+---
+env:
+  contexts:
+    - name: secscan
+      urls:
+        - $url
+      includePaths:
+        - $url.*
+  parameters:
+    failOnError: false
+    failOnWarning: false
+jobs:
+  - type: spider
+    name: spider
+    parameters:
+      context: secscan
+      url: $url
+      maxDuration: 5
+  - type: report
+    name: report-html
+    parameters:
+      template: risk-confidence-html
+      reportDir: /out
+      reportFile: zap-baseline-$name
+      reportTitle: "CI baseline - $name"
+      displayReport: false
+  - type: report
+    name: report-json
+    parameters:
+      template: traditional-json
+      reportDir: /out
+      reportFile: zap-baseline-$name
+      reportTitle: "CI baseline - $name"
+      displayReport: false
+YAML
+            docker run --rm -v /tmp/zap.yaml:/out/zap.yaml \
+              -v "$PWD/results/${SCAN_DATE}/dast":/out2 \
+              ghcr.io/zaproxy/zaproxy:stable \
+              zap.sh -cmd -port 8090 -notel -autorun /out/zap.yaml || true
+            mv zap-baseline-$name.* "results/${SCAN_DATE}/dast/" 2>/dev/null || true
+          done
+
+      - name: Archiver les resultats DAST
+        uses: actions/upload-artifact@v4
+        with:
+          name: dast-${{ env.SCAN_DATE }}
+          path: results/${{ env.SCAN_DATE }}/dast/
+          retention-days: 90
+
+  # ---------------- Archivage des metriques ----------------
+  archive:
+    name: Archivage (metriques + branche results)
+    needs: [sast, sca]
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Telecharger les artefacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Consolider dans results/
+        run: |
+          mkdir -p "results/${SCAN_DATE}"
+          cp -r artifacts/*/* "results/${SCAN_DATE}/" 2>/dev/null || true
+          find results -type d -name ".sonar" -exec rm -rf {} + 2>/dev/null || true
+
+      - name: Pousser sur la branche results (historique archive)
+        run: |
+          git config user.name "secscan-bot"
+          git config user.email "secscan@ci.local"
+          git checkout -B results 2>/dev/null || true
+          git add results/ || true
+          git diff --cached --quiet && echo "rien a archiver" && exit 0
+          git commit -m "archive: scan ${SCAN_DATE} (github run ${{ github.run_number }})"
+          git push origin results || echo "push branche results ignore (pas de remote)"
