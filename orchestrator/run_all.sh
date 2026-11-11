@@ -8,17 +8,21 @@ set -uo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 export SCAN_DATE="${SCAN_DATE:-$(date +%Y%m%d-%H%M%S)}"
-SKIP_DAST=0; SKIP_SONAR=0
+SKIP_DAST=0; SKIP_SONAR=0; DAST_MODE="full"
 for a in "$@"; do
-  case "$a" in --skip-dast) SKIP_DAST=1;; --skip-sonar) SKIP_SONAR=1;; esac
+  case "$a" in
+    --skip-dast) SKIP_DAST=1;;
+    --skip-sonar) SKIP_SONAR=1;;
+    --dast-baseline) DAST_MODE="baseline";;
+  esac
 done
 
 echo "########## SCAN_DATE=$SCAN_DATE ##########"
 echo "[1/6] SAST (Semgrep + SonarQube)"
 if [ "$SKIP_SONAR" = "1" ]; then SKIP_SONAR=1 ./orchestrator/run_sast.sh; else ./orchestrator/run_sast.sh; fi
 
-echo "[2/6] DAST (ZAP baseline + full)"
-if [ "$SKIP_DAST" = "1" ]; then echo "  (skip)"; else ./orchestrator/run_dast.sh baseline && ./orchestrator/run_dast.sh full; fi
+echo "[2/6] DAST (ZAP : $DAST_MODE)"
+if [ "$SKIP_DAST" = "1" ]; then echo "  (skip)"; else ./orchestrator/run_dast.sh "$DAST_MODE"; fi
 
 echo "[3/6] SCA (Trivy + npm audit)"
 ./orchestrator/run_sca.sh

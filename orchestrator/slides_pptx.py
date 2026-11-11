@@ -80,7 +80,11 @@ def main():
     out = sys.argv[1] if len(sys.argv) > 1 else "presentation.pptx"
     SHOT = "shots"
     gt = json.load(open("ground-truth/vulnerabilities.json"))
-    agg = sorted(glob.glob("results/AGGREGATE-*/normalized/metrics.json"))
+    if len(sys.argv) > 2:
+        agg = [os.path.join(sys.argv[2], "normalized", "metrics.json")]
+        agg = [a for a in agg if os.path.exists(a)]
+    else:
+        agg = sorted(glob.glob("results/*/normalized/metrics.json"), key=os.path.getmtime)
     metrics = json.load(open(agg[-1])) if agg else {"tools": {}}
     rem_files = sorted(glob.glob("results/remediation-*/diff-remediation.json"))
     rem = json.load(open(rem_files[-1])) if rem_files else {}
