@@ -7,7 +7,8 @@
 # Usage : ./deploy.sh
 # =============================================================
 set -euo pipefail
-cd "$(dirname "$0")"
+REPO_ROOT="$(cd "$(dirname "$0")" && pwd)"
+cd "$REPO_ROOT"
 
 echo "[1/4] --- Juice Shop + Roundcube : pull + demarrage ---"
 docker compose pull
@@ -22,7 +23,7 @@ echo "[3/4] --- crAPI : pull + demarrage (LISTEN_IP=0.0.0.0) ---"
 cd third_party/crAPI/deploy/docker
 docker compose pull
 LISTEN_IP="0.0.0.0" docker compose -f docker-compose.yml --compatibility up -d
-cd "$(dirname "$0")"
+cd "$REPO_ROOT"
 
 echo "[4/4] --- Verification de sante des 3 cibles ---"
 ./scripts/check_targets.sh
