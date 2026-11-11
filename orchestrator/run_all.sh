@@ -7,6 +7,8 @@
 set -uo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
+# Charger les secrets (SONAR_TOKEN) si presents
+if [ -f .env ]; then set -a; . ./.env; set +a; fi
 export SCAN_DATE="${SCAN_DATE:-$(date +%Y%m%d-%H%M%S)}"
 SKIP_DAST=0; SKIP_SONAR=0; DAST_MODE="full"
 for a in "$@"; do
