@@ -70,7 +70,7 @@ if [ -n "$SONAR_TOKEN" ]; then
       -Dsonar.working.directory="/out/.sonar-$KEY" \
       > "$OUT/sonar-$t.log" 2>&1
     if grep -q "EXECUTION SUCCESS" "$OUT/sonar-$t.log"; then
-      curl -s -H "Authorization: Bearer $SONAR_TOKEN" "$SONAR_HOST/api/issues/search?componentKeys=$KEY&ps=1000" > "$OUT/sonar-$t.json"
+      curl -s -H "Authorization: Bearer $SONAR_TOKEN" "$SONAR_HOST/api/issues/search?componentKeys=$KEY&ps=500" > "$OUT/sonar-$t.json"
       echo "    -> sonar-$t.json ($(python3 -c "import json;d=json.load(open('$OUT/sonar-$t.json'));print(d.get('total','?'),'issues')" 2>/dev/null || echo '?'))"
     else
       echo "    [ECHEC] voir $OUT/sonar-$t.log"; tail -3 "$OUT/sonar-$t.log"
