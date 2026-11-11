@@ -92,4 +92,10 @@ try:
 except Exception as e:
     print("  (resume partiel :", e, ")")
 PYEOF
-echo "  Cibles : http://$(curl -s -m3 https://api.ipify.org 2>/dev/null || echo IP_VM):3000 | :8080 | :8888"
+VM_IP=$(curl -s -m3 https://api.ipify.org 2>/dev/null || hostname -I | awk "{print \$1}")
+echo "  Cibles : http://${VM_IP}:3000 | :8080 | :8888"
+echo
+echo "Pour exporter les rapports EN LOCALE (depuis votre machine) :"
+echo "  scp -i labsuser.pem \"ubuntu@${VM_IP}:~/secscan-platform/$SCAN_DIR/report.pdf\" ."
+echo "  scp -i labsuser.pem \"ubuntu@${VM_IP}:~/secscan-platform/$SCAN_DIR/presentation.pptx\" ."
+echo "  (ou : ./recuperer_rapports.sh — script fourni a cote des cles)"
