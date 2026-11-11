@@ -1,0 +1,27 @@
+rules:
+  - id: custom.js.dom-xss-innerhtml-source
+    message: >
+      Ecriture d'une source controllable (URL, query, postMessage) dans
+      innerHTML/outerHTML -> XSS DOM. Utiliser textContent ou encoder.
+      Ref: TP3 (XSS : Client controlled input -> DOM -> navigateur).
+    languages: [javascript, typescript]
+    severity: ERROR
+    mode: taint
+    metadata:
+      cwe: CWE-79
+      owasp: "A05:2025 Injection"
+      confidence: HIGH
+    pattern-sources:
+      - pattern-either:
+          - pattern: location.search
+          - pattern: location.hash
+          - pattern: location.href
+          - pattern: document.URL
+          - pattern: document.referrer
+          - pattern: new URLSearchParams(...).get(...)
+    pattern-sinks:
+      - pattern-either:
+          - pattern: $EL.innerHTML = $X
+          - pattern: $EL.outerHTML = $X
+          - pattern: $EL.insertAdjacentHTML(..., $X)
+          - pattern: document.write($X)

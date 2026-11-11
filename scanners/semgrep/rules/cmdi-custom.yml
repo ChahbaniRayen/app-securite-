@@ -1,0 +1,26 @@
+rules:
+  - id: custom.js.child-process-templated-cmdi
+    message: >
+      Commande OS construite avec une entree utilisateur via template literal
+      (exec/execSync/spawn). Eviter le shell : validation allowlist ou API
+      sans shell (cf. TP2 mini-lab vuln-lookup, remediation dns.resolve).
+    languages: [javascript, typescript]
+    severity: ERROR
+    metadata:
+      cwe: CWE-78
+      owasp: "A05:2025 Injection"
+      confidence: HIGH
+    patterns:
+      - pattern-either:
+          - pattern: $F.exec(`...${$SRC}...`, ...)
+          - pattern: $F.execSync(`...${$SRC}...`, ...)
+          - pattern: $F.execFileSync(`...${$SRC}...`, ...)
+          - pattern: $F.spawn(`...${$SRC}...`, ...)
+          - pattern: $F.spawnSync(`...${$SRC}...`, ...)
+          - pattern: exec(`...${$SRC}...`, ...)
+          - pattern: execSync(`...${$SRC}...`, ...)
+          - pattern: spawn(`...${$SRC}...`, ...)
+          - pattern: spawnSync(`...${$SRC}...`, ...)
+      - metavariable-regex:
+          metavariable: $SRC
+          regex: (req|request)\.(body|query|params)
