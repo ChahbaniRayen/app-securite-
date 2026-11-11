@@ -281,8 +281,8 @@ def main():
                  "DAST : scan ZAP baseline sur demande (workflow_dispatch);",
                  "Archivage : upload des artifacts (90 jours) + push automatique sur la branche results (historique horodaté)."]:
         pdf.set_font("Helvetica", "", 10)
-        pdf.cell(6, 6, safe("-"))
-        pdf.multi_cell(0, 6, safe(line))
+        pdf.set_x(pdf.l_margin + 6)
+        pdf.multi_cell(0, 6, safe("- " + line), new_x="LMARGIN", new_y="NEXT")
     body(pdf, "Le pipeline local orchestrator/run_all.sh reproduit la meme chaine en une seule "
               "commande (SAST -> DAST -> SCA -> custom -> normalisation -> metriques).")
 
